@@ -323,11 +323,14 @@ final class AppStore: ObservableObject {
                 guard steps >= 10_000 else { continue }
 
                 let key = "goal-\(friend.id.uuidString)-\(Friend.dayKey(startOfDay, calendar: calendar))"
+                // Land the post in the evening of that day rather than at
+                // midnight — but never in the future, or today's entries would
+                // stay invisible until 7pm.
+                let evening = calendar.date(byAdding: .hour, value: 19, to: startOfDay) ?? startOfDay
                 events.append(
                     FeedEvent(
                         id: key,
-                        // Land the post in the evening of that day, not midnight.
-                        date: calendar.date(byAdding: .hour, value: 19, to: startOfDay) ?? startOfDay,
+                        date: min(evening, now),
                         actorID: friend.id,
                         actorName: friend.displayName,
                         actorEmoji: friend.avatarEmoji,

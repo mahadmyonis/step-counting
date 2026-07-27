@@ -26,9 +26,11 @@ enum ChallengeEngine {
     ) -> Int {
         let calendar = inputs.calendar
         let start = calendar.startOfDay(for: challenge.startDate)
-        // Never count past the end of the challenge, or past today.
-        let cappedEnd = min(challenge.endDate, inputs.now)
-        let end = calendar.startOfDay(for: cappedEnd)
+        // `endDate` is the exclusive midnight after the final day, so step back
+        // an instant before taking start-of-day — otherwise a 7-day challenge
+        // counts eight days once it finishes.
+        let lastMoment = challenge.endDate.addingTimeInterval(-1)
+        let end = calendar.startOfDay(for: min(lastMoment, inputs.now))
         guard end >= start else { return 0 }
 
         if participantID == inputs.youID {

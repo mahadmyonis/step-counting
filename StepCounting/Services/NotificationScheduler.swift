@@ -104,9 +104,18 @@ final class NotificationScheduler: ObservableObject {
         add(content, at: DateComponents(hour: 20, minute: 30), id: ID.streakAtRisk)
     }
 
-    /// Morning-of reminder for a challenge that ends today.
+    /// Morning-of reminder for a challenge on its final day.
+    ///
+    /// `endDate` is the exclusive midnight *after* the last day, so the reminder
+    /// is anchored to the day before it — firing on `endDate` itself would land
+    /// after the challenge had already been decided.
     private func scheduleChallengeReminder(_ challenge: Challenge?) {
         guard let challenge else { return }
+
+        let calendar = Calendar.current
+        let finalDay = calendar.startOfDay(for: challenge.endDate.addingTimeInterval(-1))
+        guard let fireDate = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: finalDay),
+              fireDate > Date() else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "\(challenge.emoji) \(challenge.title) ends today"
@@ -114,13 +123,7 @@ final class NotificationScheduler: ObservableObject {
         content.sound = .default
 
         let trigger = UNCalendarNotificationTrigger(
-            dateMatching: Calendar.current.dateComponents(
-                [.year, .month, .day, .hour, .minute],
-                from: Calendar.current.date(
-                    bySettingHour: 9, minute: 0, second: 0,
-                    of: challenge.endDate
-                ) ?? challenge.endDate
-            ),
+            dateMatching: calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate),
             repeats: false
         )
         center.add(UNNotificationRequest(identifier: ID.challengeEnding, content: content, trigger: trigger))
