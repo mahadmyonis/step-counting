@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSHealthShareUsageDescription</key>
-	<string>StepCounting reads your steps, walking distance, and active energy from Apple Health to show your daily activity and progress toward your goal.</string>
+	<string>StepCounting reads your steps, walking distance, active energy, stairs climbed, and exercise minutes from Apple Health to show your daily activity, streaks, badges, and challenge progress. This data stays on your device.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>StepCounting does not write any data to Apple Health.</string>
 	<key>UILaunchScreen</key>
