@@ -684,7 +684,13 @@ extension AppStore {
     /// and XP shown are the ones those numbers genuinely produce — a mocked-up
     /// "14-day streak" that the engine wouldn't actually compute is how a demo
     /// ends up flattering a product that doesn't work.
-    static func preview(health: HealthKitManager = .preview()) -> AppStore {
+    /// Default arguments are evaluated in a nonisolated context, so the health
+    /// manager can't be defaulted here — hence the pair of overloads.
+    static func preview() -> AppStore {
+        preview(health: .preview())
+    }
+
+    static func preview(health: HealthKitManager) -> AppStore {
         let store = AppStore(cloud: DemoSocialService(), store: .ephemeral)
         store.completeOnboarding(name: "Sam", emoji: "⚡️", accentIndex: 1, joinSampleCrew: true)
 
