@@ -1,9 +1,14 @@
 name: Screenshots
 
-# Manual only. This workflow commits back to the branch, so running it on push
-# would retrigger itself forever.
+# This workflow commits back to the branch. The commit it makes carries
+# `[skip ci]`, which GitHub honours by not starting a new run — that's what stops
+# it retriggering itself. workflow_dispatch only works from the default branch,
+# hence the explicit branch filter as well.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - claude/session-progress-review-i9vphe
 
 permissions:
   contents: write
