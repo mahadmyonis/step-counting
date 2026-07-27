@@ -39,6 +39,8 @@ final class HealthKitManager: ObservableObject {
 
     private let store = HKHealthStore()
     private var observerQueries: [HKObserverQuery] = []
+    /// Set by `preview()`. Freezes the published values so nothing overwrites them.
+    private var isPreviewData = false
 
     private let stepType = HKQuantityType(.stepCount)
     private let distanceType = HKQuantityType(.distanceWalkingRunning)
@@ -79,7 +81,8 @@ final class HealthKitManager: ObservableObject {
     // MARK: Public refresh
 
     func refreshAll() async {
-        guard authorizationStatus == .authorized else { return }
+        // Demo builds hold fabricated data; a real query would wipe it.
+        guard !isPreviewData, authorizationStatus == .authorized else { return }
         isRefreshing = true
         defer {
             isRefreshing = false
@@ -273,37 +276,61 @@ final class HealthKitManager: ObservableObject {
 // MARK: - Previews
 
 extension HealthKitManager {
-    /// A manager pre-filled with plausible data, so SwiftUI previews and the
-    /// simulator show a populated app without any Health samples on disk.
+    /// A manager pre-filled with plausible data, so previews and demo builds
+    /// show a populated app without any Health samples on disk.
+    ///
+    /// Shaped deliberately rather than randomly: a live streak with today still
+    /// in progress is what the app looks like most of the time someone opens it,
+    /// and it's the only state where the ring, the streak card, and the "steps to
+    /// go" copy are all doing something.
     static func preview() -> HealthKitManager {
         let manager = HealthKitManager()
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         var rng = SeededGenerator(seed: 20_260_727)
 
-        var days: [DailyActivity] = []
-        for offset in stride(from: StatsRange.maxDayCount - 1, through: 0, by: -1) {
-            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
-            let steps = Int.random(in: 4_200...16_800, using: &rng)
-            days.append(
-                DailyActivity(
-                    date: date,
-                    steps: steps,
-                    distanceMeters: Double(steps) * Units.metersPerStep,
-                    activeEnergyKcal: Double(steps) / 22,
-                    flightsClimbed: Int.random(in: 0...18, using: &rng),
-                    exerciseMinutes: Int.random(in: 0...75, using: &rng)
-                )
+        func day(_ offset: Int, steps: Int) -> DailyActivity? {
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            return DailyActivity(
+                date: date,
+                steps: steps,
+                distanceMeters: Double(steps) * Units.metersPerStep,
+                activeEnergyKcal: Double(steps) / 22,
+                flightsClimbed: Int.random(in: 2...16, using: &rng),
+                exerciseMinutes: Int.random(in: 12...68, using: &rng)
             )
         }
 
+        var days: [DailyActivity] = []
+        for offset in stride(from: StatsRange.maxDayCount - 1, through: 0, by: -1) {
+            let steps: Int
+            switch offset {
+            case 0:
+                // Today, mid-afternoon: goal in sight but not met.
+                steps = 8_640
+            case 1...13:
+                // A live streak — every day comfortably over a 10k goal.
+                steps = Int.random(in: 10_400...19_200, using: &rng)
+            default:
+                // Further back, a normal mix of good days and off days.
+                steps = Int.random(in: 3_900...17_500, using: &rng)
+            }
+            if let entry = day(offset, steps: steps) { days.append(entry) }
+        }
+
+        manager.isPreviewData = true
         manager.authorizationStatus = .authorized
         manager.history = days
         manager.today = days.last ?? .empty(for: today)
-        manager.hourlyToday = (0..<24).map { hour in
-            let active = hour >= 6 && hour <= 22
-            return HourlySteps(hour: hour, steps: active ? Int.random(in: 40...1_400, using: &rng) : 0)
-        }
+        manager.lastRefreshedAt = Date()
+
+        // A commuter's day: a walk to the station, a lunch loop, an evening walk.
+        let shape: [Int: Int] = [
+            6: 320, 7: 1_180, 8: 940, 9: 260, 10: 180, 11: 240,
+            12: 860, 13: 1_120, 14: 300, 15: 420, 16: 380, 17: 1_240, 18: 880
+        ]
+        manager.hourlyToday = (0..<24).map { HourlySteps(hour: $0, steps: shape[$0] ?? 0) }
+
         manager.lifetime = LifetimeTotals(
             steps: 1_284_000,
             distanceMeters: 978_000,

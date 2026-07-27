@@ -10,6 +10,8 @@ struct RootView: View {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    @State private var tab: RootTab = DemoMode.initialTab
+
     var body: some View {
         Group {
             if store.hasOnboarded {
@@ -23,21 +25,26 @@ struct RootView: View {
     }
 
     private var main: some View {
-        TabView {
+        TabView(selection: $tab) {
             DashboardView()
                 .tabItem { Label("Today", systemImage: "figure.walk") }
+                .tag(RootTab.today)
 
             ChallengesView()
                 .tabItem { Label("Challenges", systemImage: "flag.checkered") }
+                .tag(RootTab.challenges)
 
             CrewsView()
                 .tabItem { Label("Crews", systemImage: "person.2.fill") }
+                .tag(RootTab.crews)
 
             StatsView()
                 .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
+                .tag(RootTab.stats)
 
             ProfileView()
                 .tabItem { Label("You", systemImage: "person.crop.circle") }
+                .tag(RootTab.you)
         }
         // Every derived value — streak, badges, XP, challenge results — is
         // recomputed the moment Health hands us new numbers, so nothing in the

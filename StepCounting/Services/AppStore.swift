@@ -677,14 +677,25 @@ struct PersistenceStore {
 // MARK: - Previews
 
 extension AppStore {
-    /// A fully populated store backed by nothing on disk, for SwiftUI previews.
-    static func preview() -> AppStore {
+    /// A fully populated store backed by nothing on disk, for SwiftUI previews
+    /// and demo builds.
+    ///
+    /// Runs a real `sync` against the sample Health data so the streak, badges,
+    /// and XP shown are the ones those numbers genuinely produce — a mocked-up
+    /// "14-day streak" that the engine wouldn't actually compute is how a demo
+    /// ends up flattering a product that doesn't work.
+    static func preview(health: HealthKitManager = .preview()) -> AppStore {
         let store = AppStore(cloud: DemoSocialService(), store: .ephemeral)
         store.completeOnboarding(name: "Sam", emoji: "⚡️", accentIndex: 1, joinSampleCrew: true)
+
         if let crew = store.crews.first {
-            store.start(template: ChallengeTemplate.catalog[0], in: crew)
-            store.start(template: ChallengeTemplate.catalog[5], in: crew)
+            store.start(template: ChallengeTemplate.catalog[1], in: crew)   // 100K Week
+            store.start(template: ChallengeTemplate.catalog[5], in: crew)   // Walk the Camino
         }
+
+        store.sync(with: health, goal: 10_000)
+        // Suppress the launch celebration; it would cover whatever we're showing.
+        store.celebration = nil
         store.toast = nil
         return store
     }
