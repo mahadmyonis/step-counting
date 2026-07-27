@@ -1,0 +1,135 @@
+name: Screenshots
+
+# This workflow commits back to the branch. The commit it makes carries
+# `[skip ci]`, which GitHub honours by not starting a new run — that's what stops
+# it retriggering itself. workflow_dispatch only works from the default branch,
+# hence the explicit branch filter as well.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/session-progress-review-i9vphe
+
+permissions:
+  contents: write
+
+env:
+  BUNDLE_ID: com.mahadmyonis.StepCounting
+  SHOT_DIR: docs/screenshots
+
+jobs:
+  capture:
+    name: Capture simulator screenshots
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode.app
+
+      - name: Build for simulator
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project StepCounting.xcodeproj \
+            -scheme StepCounting \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Boot a simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          # Prefer a Pro model for the taller screen; fall back to any iPhone.
+          DEVICE_ID=$(xcrun simctl list devices available -j \
+            | jq -r '[.devices | to_entries[] | .value[] | select(.name | startswith("iPhone"))]
+                     | sort_by(.name) | reverse | .[0].udid')
+
+          if [ -z "$DEVICE_ID" ] || [ "$DEVICE_ID" = "null" ]; then
+            echo "::error::No iPhone simulator available"
+            xcrun simctl list devices available
+            exit 1
+          fi
+
+          echo "Using simulator $DEVICE_ID"
+          echo "device_id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
+
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+
+          # A clean, consistent status bar — otherwise every capture shows a
+          # different clock and a half-empty battery.
+          xcrun simctl status_bar "$DEVICE_ID" override \
+            --time "9:41" \
+            --batteryState charged \
+            --batteryLevel 100 \
+            --cellularMode active \
+            --cellularBars 4 \
+            --wifiMode active \
+            --wifiBars 3
+
+      - name: Install app
+        run: |
+          set -euo pipefail
+          APP=build/Build/Products/Debug-iphonesimulator/StepCounting.app
+          test -d "$APP" || { echo "::error::Missing $APP"; exit 1; }
+          xcrun simctl install "${{ steps.sim.outputs.device_id }}" "$APP"
+
+      - name: Capture every tab
+        run: |
+          set -euo pipefail
+          DEVICE="${{ steps.sim.outputs.device_id }}"
+          rm -rf "$SHOT_DIR"
+          mkdir -p "$SHOT_DIR"
+
+          shoot () {
+            local tab="$1" appearance="$2" name="$3"
+            xcrun simctl ui "$DEVICE" appearance "$appearance"
+            xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+            sleep 1
+            # -demoMode swaps HealthKit for fabricated data; -demoTab picks the
+            # screen, so no UI automation is needed to reach any of them.
+            xcrun simctl launch "$DEVICE" "$BUNDLE_ID" -demoMode -demoTab "$tab" >/dev/null
+            # Long enough for the launch animation and the ring to settle.
+            sleep 6
+            xcrun simctl io "$DEVICE" screenshot --type=png "$SHOT_DIR/$name.png"
+            echo "captured $name"
+          }
+
+          shoot today      light 1-today
+          shoot challenges light 2-challenges
+          shoot crews      light 3-crews
+          shoot stats      light 4-stats
+          shoot you        light 5-you
+          shoot today      dark  6-today-dark
+          shoot crews      dark  7-crews-dark
+
+      - name: Downscale
+        run: |
+          set -euo pipefail
+          # Full device resolution is ~1.5 MB a shot; 1400px tall is plenty to
+          # look at and keeps the repository sane.
+          for f in "$SHOT_DIR"/*.png; do
+            sips -Z 1400 "$f" >/dev/null
+          done
+          ls -lh "$SHOT_DIR"
+
+      - name: Commit screenshots
+        run: |
+          set -euo pipefail
+          git config user.name "Claude"
+          git config user.email "noreply@anthropic.com"
+          git add "$SHOT_DIR"
+          if git diff --cached --quiet; then
+            echo "No screenshot changes"
+            exit 0
+          fi
+          git commit -m "Update simulator screenshots [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
