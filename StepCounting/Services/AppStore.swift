@@ -79,6 +79,9 @@ final class AppStore: ObservableObject {
     private var lastCloudSync: Date?
     /// Guards against celebrating the same thing twice in one day.
     private var celebratedGoalDay: Date?
+    /// False until the first sync has run. Badges earned before then are
+    /// backfilled silently rather than announced.
+    private var hasBackfilledBadges = false
     private var celebratedStreakMilestone: Int = 0
     /// Your own milestone posts. Crew-mates' events are generated on read.
     private var ownEvents: [FeedEvent] = []
@@ -107,6 +110,7 @@ final class AppStore: ObservableObject {
         var cheeredEventIDs: [String]
         var celebratedGoalDay: Date?
         var celebratedStreakMilestone: Int
+        var hasBackfilledBadges: Bool?
     }
 
     private func load() {
@@ -126,6 +130,7 @@ final class AppStore: ObservableObject {
         cheeredEventIDs = Set(snapshot.cheeredEventIDs)
         celebratedGoalDay = snapshot.celebratedGoalDay
         celebratedStreakMilestone = snapshot.celebratedStreakMilestone
+        hasBackfilledBadges = snapshot.hasBackfilledBadges ?? true
         roster[profile.id] = you
     }
 
@@ -141,7 +146,8 @@ final class AppStore: ObservableObject {
             ownEvents: Array(ownEvents.suffix(150)),
             cheeredEventIDs: Array(cheeredEventIDs),
             celebratedGoalDay: celebratedGoalDay,
-            celebratedStreakMilestone: celebratedStreakMilestone
+            celebratedStreakMilestone: celebratedStreakMilestone,
+            hasBackfilledBadges: hasBackfilledBadges
         )
         store.write(snapshot)
     }
@@ -440,7 +446,13 @@ final class AppStore: ObservableObject {
             hourly: health.hourlyToday
         )
 
-        let newBadges = unlockBadges(context: context, now: now)
+        // The very first sync unlocks every badge the user already qualifies
+        // for. Announcing those would bury the crew's activity under a wall of
+        // "You earned …" posts, and a badge you already met the bar for isn't
+        // news — so the first pass is silent.
+        let isBackfill = !hasBackfilledBadges
+        let newBadges = unlockBadges(context: context, now: now, announce: !isBackfill)
+        hasBackfilledBadges = true
         resolveFinishedChallenges(health: health, goal: goal, now: now)
         recomputeXP(history: history, goal: goal)
         celebrateIfNeeded(health: health, goal: goal, newBadges: newBadges, now: now, calendar: calendar)
@@ -454,11 +466,20 @@ final class AppStore: ObservableObject {
     }
 
     /// Marks any newly satisfied badges as earned and returns them.
-    private func unlockBadges(context: AchievementContext, now: Date) -> [Achievement] {
+    /// Marks newly satisfied badges as earned.
+    ///
+    /// Returns them only when announcing — a silent backfill still records the
+    /// unlock, it just doesn't post about it or trigger a celebration.
+    private func unlockBadges(
+        context: AchievementContext,
+        now: Date,
+        announce: Bool
+    ) -> [Achievement] {
         var earned: [Achievement] = []
         for badge in Achievement.catalog
         where unlockedBadges[badge.id] == nil && badge.requirement.isSatisfied(by: context) {
             unlockedBadges[badge.id] = now
+            guard announce else { continue }
             earned.append(badge)
             record(kind: .badgeUnlocked, message: "earned \(badge.title)", id: "badge-\(badge.id)")
         }

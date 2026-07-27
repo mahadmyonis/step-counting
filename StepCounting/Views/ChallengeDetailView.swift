@@ -15,14 +15,14 @@ struct ChallengeDetailView: View {
 
     var body: some View {
         ZStack {
-            AuroraBackground(tint: challenge.tint, secondary: Theme.violet)
+            ScreenBackground(tint: challenge.tint, secondary: Theme.violet)
 
             ScrollView {
                 VStack(spacing: Theme.sectionSpacing) {
                     header
                     if let route = challenge.route {
                         RouteProgressView(route: route, progress: headlineProgress)
-                            .glassCard()
+                            .card()
                     }
                     if challenge.format.isCooperative {
                         teamCard
@@ -98,7 +98,7 @@ struct ChallengeDetailView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .glassCard(tint: challenge.tint)
+        .card(tint: challenge.tint)
     }
 
     private var teamCard: some View {
@@ -123,7 +123,7 @@ struct ChallengeDetailView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .glassCard()
+        .card()
     }
 
     private var standingsCard: some View {
@@ -142,7 +142,7 @@ struct ChallengeDetailView: View {
                 )
             }
         }
-        .glassCard()
+        .card()
     }
 
     private var detailsCard: some View {
@@ -161,7 +161,7 @@ struct ChallengeDetailView: View {
                 detailRow("Crew", "\(crew.emoji) \(crew.name)", "person.2.fill")
             }
         }
-        .glassCard(padding: 0)
+        .card(padding: 0)
     }
 
     private func detailRow(_ title: String, _ value: String, _ symbol: String) -> some View {

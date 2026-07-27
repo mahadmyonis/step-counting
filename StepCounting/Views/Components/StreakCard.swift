@@ -26,16 +26,13 @@ struct StreakCard: View {
             if case .rescuable = status, let onUseFreeze {
                 Button(action: onUseFreeze) {
                     Label("Use a streak freeze", systemImage: "snowflake")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.sky)
+                .buttonStyle(.prominent(Theme.sky))
             }
 
             footer
         }
-        .glassCard(tint: streak.current > 0 ? Theme.flame : .clear)
+        .card(tint: streak.current > 0 ? Theme.flame : .clear)
         .onAppear {
             guard streak.current > 0 else { return }
             withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
@@ -154,7 +151,7 @@ struct StreakCard: View {
 
 #Preview {
     ZStack {
-        AuroraBackground()
+        ScreenBackground()
         VStack(spacing: 16) {
             StreakCard(
                 streak: StreakState(current: 12, longest: 21, freezesAvailable: 2),

@@ -13,7 +13,7 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AuroraBackground(tint: Theme.accent(store.profile.accentIndex), secondary: Theme.violet)
+                ScreenBackground(tint: Theme.accent(store.profile.accentIndex), secondary: Theme.violet)
 
                 ScrollView {
                     VStack(spacing: Theme.sectionSpacing) {
@@ -77,7 +77,7 @@ struct ProfileView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .glassCard(tint: Theme.accent(store.profile.accentIndex))
+        .card(tint: Theme.accent(store.profile.accentIndex))
     }
 
     /// Levels never go down, which is the point — they're the counterweight to a
@@ -109,7 +109,7 @@ struct ProfileView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .glassCard(tint: Theme.violet)
+        .card(tint: Theme.violet)
     }
 
     private var lifetimeCard: some View {
@@ -180,7 +180,7 @@ struct ProfileView: View {
                 .padding(.vertical, 2)
             }
         }
-        .glassCard()
+        .card()
     }
 
     private var links: some View {
@@ -197,7 +197,7 @@ struct ProfileView: View {
                 linkRow("Settings", "gearshape.fill", Theme.brand)
             }
         }
-        .glassCard(padding: 0)
+        .card(padding: 0)
         .foregroundStyle(.primary)
     }
 

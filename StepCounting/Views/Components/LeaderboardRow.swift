@@ -98,7 +98,7 @@ struct TodayBoardRow: View {
 
 #Preview {
     ZStack {
-        AuroraBackground()
+        ScreenBackground()
         VStack(spacing: 4) {
             StandingRow(
                 standing: Standing(id: UUID(), name: "Kiran", emoji: "🐆", accentIndex: 2,

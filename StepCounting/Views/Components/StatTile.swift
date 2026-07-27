@@ -37,7 +37,7 @@ struct StatTile: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .card()
     }
 }
 
@@ -56,7 +56,7 @@ struct AvatarView: View {
             .frame(width: size, height: size)
             .background {
                 Circle()
-                    .fill(Theme.softGradient(tint).opacity(0.28))
+                    .fill(Theme.fill(tint).opacity(0.28))
             }
             .overlay {
                 Circle()
@@ -77,7 +77,7 @@ struct ProgressBarRow: View {
                 Capsule()
                     .fill(tint.opacity(0.16))
                 Capsule()
-                    .fill(Theme.softGradient(tint))
+                    .fill(Theme.fill(tint))
                     .frame(width: max(height, geo.size.width * min(max(progress, 0), 1)))
             }
         }
@@ -87,7 +87,7 @@ struct ProgressBarRow: View {
 
 #Preview {
     ZStack {
-        AuroraBackground()
+        ScreenBackground()
         VStack(spacing: 16) {
             HStack(spacing: 12) {
                 StatTile(title: "Distance", value: "6.4 km", systemImage: "location.fill")

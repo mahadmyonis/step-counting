@@ -114,6 +114,7 @@ struct CelebrationOverlay: View {
     var onShare: (() -> Void)?
     var onDismiss: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
     var body: some View {
@@ -157,15 +158,21 @@ struct CelebrationOverlay: View {
             }
             .padding(26)
             .frame(maxWidth: 330)
-            .glassCard(radius: 28, padding: 0)
+            .card(radius: 28, padding: 0)
             .scaleEffect(appeared ? 1 : 0.85)
             .opacity(appeared ? 1 : 0)
 
-            ConfettiView(isActive: appeared)
-                .ignoresSafeArea()
+            if !reduceMotion {
+                ConfettiView(isActive: appeared)
+                    .ignoresSafeArea()
+            }
         }
         .onAppear {
-            withAnimation(Theme.springy) { appeared = true }
+            if reduceMotion {
+                appeared = true
+            } else {
+                withAnimation(Theme.springy) { appeared = true }
+            }
             Haptics.success()
         }
     }

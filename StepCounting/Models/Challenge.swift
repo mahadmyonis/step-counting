@@ -59,6 +59,16 @@ enum ChallengeFormat: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Fits a card chip on a small phone, where `title` truncates.
+    var shortTitle: String {
+        switch self {
+        case .race: return "Race"
+        case .mostSteps: return "Most steps"
+        case .teamTotal: return "Team"
+        case .streakDuel: return "Streak duel"
+        }
+    }
+
     var detail: String {
         switch self {
         case .race: return "First to the finish line wins."

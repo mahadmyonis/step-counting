@@ -10,82 +10,101 @@ struct ChallengeCard: View {
     var useMetric: Bool = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
-                Text(challenge.emoji)
-                    .font(.system(size: 30))
-                    .frame(width: 46, height: 46)
-                    .background(challenge.tint.opacity(0.16), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            header
+            ProgressBarRow(progress: progress, tint: challenge.tint)
+            footer
+        }
+        .card(tint: challenge.tint)
+        .accessibilityElement(children: .combine)
+    }
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(challenge.title)
-                        .font(.headline)
-                        .lineLimit(1)
+    // MARK: Rows
 
-                    HStack(spacing: 6) {
-                        Label(challenge.format.title, systemImage: challenge.format.symbol)
-                        Text("·")
-                        Text("\(participantCount) walking")
-                    }
+    private var header: some View {
+        HStack(alignment: .center, spacing: Theme.Space.md) {
+            Text(challenge.emoji)
+                .font(.system(size: 28))
+                .frame(width: 46, height: 46)
+                .background(
+                    challenge.tint.opacity(0.14),
+                    in: RoundedRectangle(cornerRadius: Theme.Radius.chip + 2, style: .continuous)
+                )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(challenge.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+
+                // Short labels and a fixed size, so these never become
+                // "Race to…" on a narrow phone.
+                HStack(spacing: Theme.Space.sm) {
+                    label(challenge.format.symbol, challenge.format.shortTitle)
+                    label("person.2.fill", "\(participantCount)")
+                }
+            }
+
+            Spacer(minLength: Theme.Space.xs)
+
+            Text(challenge.status())
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(challenge.hasEnded() ? .secondary : challenge.tint)
+                .padding(.horizontal, Theme.Space.sm)
+                .padding(.vertical, 5)
+                .background(
+                    (challenge.hasEnded() ? Color.secondary : challenge.tint).opacity(0.13),
+                    in: Capsule()
+                )
+                .fixedSize()
+        }
+    }
+
+    /// Rank on the left, pace on the right — each on its own line's worth of
+    /// room rather than three fragments competing for one row.
+    private var footer: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Space.sm) {
+            if let yourStanding {
+                Text(rankText(yourStanding))
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(challenge.tint)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: Theme.Space.xs)
+
+            if let pace {
+                Text(pace)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            } else if challenge.target > 0 {
+                Text(challenge.metric.format(challenge.target, metric: useMetric))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                }
-
-                Spacer(minLength: 0)
-
-                Text(challenge.status())
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(challenge.hasEnded() ? .secondary : challenge.tint)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(
-                        (challenge.hasEnded() ? Color.secondary : challenge.tint).opacity(0.14),
-                        in: Capsule()
-                    )
-                    .fixedSize()
-            }
-
-            VStack(alignment: .leading, spacing: 7) {
-                ProgressBarRow(progress: progress, tint: challenge.tint)
-
-                HStack(spacing: 8) {
-                    if let yourStanding {
-                        Text(rankText(yourStanding))
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(challenge.tint)
-                    }
-
-                    if challenge.target > 0 {
-                        Text(targetText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer(minLength: 0)
-
-                    if let pace {
-                        Text(pace)
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
             }
         }
-        .glassCard(tint: challenge.tint)
+    }
+
+    private func label(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol)
+                .font(.system(size: 9, weight: .bold))
+            Text(text)
+                .font(.caption2.weight(.medium))
+        }
+        .foregroundStyle(.secondary)
+        .fixedSize()
     }
 
     private func rankText(_ standing: Standing) -> String {
         if challenge.format.isCooperative {
-            return "You: \(challenge.metric.format(standing.value, metric: useMetric))"
+            return challenge.metric.format(standing.value, metric: useMetric)
         }
-        return "\(standing.medal ?? "") \(ordinal(standing.rank)) place"
+        return "\(standing.medal ?? "") \(ordinal(standing.rank))"
             .trimmingCharacters(in: .whitespaces)
-    }
-
-    private var targetText: String {
-        "· target \(challenge.metric.format(challenge.target, metric: useMetric))"
     }
 
     private func ordinal(_ value: Int) -> String {
@@ -197,7 +216,7 @@ struct RouteProgressView: View {
 
 #Preview {
     ZStack {
-        AuroraBackground()
+        ScreenBackground()
         ScrollView {
             VStack(spacing: 16) {
                 ChallengeCard(
@@ -213,7 +232,7 @@ struct RouteProgressView: View {
 
                 if let camino = VirtualRoute.catalog["camino"] {
                     RouteProgressView(route: camino, progress: 0.58)
-                        .glassCard()
+                        .card()
                 }
             }
             .padding()

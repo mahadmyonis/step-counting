@@ -19,7 +19,7 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AuroraBackground(tint: Theme.accent(store.profile.accentIndex))
+                ScreenBackground(tint: Theme.accent(store.profile.accentIndex))
 
                 ScrollView {
                     VStack(spacing: Theme.sectionSpacing) {
@@ -34,7 +34,7 @@ struct DashboardView: View {
                                 actionTitle: "Connect Health",
                                 action: { Task { await connect() } }
                             )
-                            .glassCard()
+                            .card()
                         case .denied:
                             InfoState(
                                 systemImage: "hand.raised.slash",
@@ -42,7 +42,7 @@ struct DashboardView: View {
                                 message: "Enable step, distance, and energy access in Settings → Health → Data Access to use StepCounting.",
                                 tint: Theme.coral
                             )
-                            .glassCard()
+                            .card()
                         case .unavailable:
                             InfoState(
                                 systemImage: "exclamationmark.triangle",
@@ -50,7 +50,7 @@ struct DashboardView: View {
                                 message: "Health data isn't available on this device.",
                                 tint: Theme.flame
                             )
-                            .glassCard()
+                            .card()
                         }
                     }
                     .padding(.horizontal, Theme.screenPadding)
@@ -163,7 +163,7 @@ struct DashboardView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .glassCard(tint: crew.tint)
+            .card(tint: crew.tint)
         } else {
             emptyCrewPrompt
         }
@@ -194,7 +194,7 @@ struct DashboardView: View {
             }
             .font(.subheadline.weight(.semibold))
         }
-        .glassCard(tint: Theme.brand)
+        .card(tint: Theme.brand)
     }
 
     @ViewBuilder
@@ -236,7 +236,7 @@ struct DashboardView: View {
                         y: .value("Steps", bucket.steps),
                         width: .fixed(6)
                     )
-                    .foregroundStyle(Theme.softGradient(Theme.accent(store.profile.accentIndex)))
+                    .foregroundStyle(Theme.fill(Theme.accent(store.profile.accentIndex)))
                     .cornerRadius(3)
                 }
                 .chartXScale(domain: 0...23)
@@ -262,7 +262,7 @@ struct DashboardView: View {
                 }
                 .frame(height: 140)
             }
-            .glassCard()
+            .card()
         }
     }
 
@@ -286,10 +286,13 @@ struct DashboardView: View {
         )
     }
 
+    /// A number tells you where you are; a walking time tells you what to do
+    /// about it, which is the difference between a readout and a nudge.
     private var ringCaption: String? {
         let remaining = dailyGoal - health.today.steps
         guard remaining > 0 else { return nil }
-        return "\(remaining.grouped) to go"
+        let minutes = max(1, Int((Double(remaining) / 110).rounded()))
+        return "\(remaining.grouped) to go · about \(minutes) min"
     }
 
     private var greeting: String {

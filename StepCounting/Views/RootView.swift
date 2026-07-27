@@ -21,6 +21,7 @@ struct RootView: View {
                     .transition(.opacity)
             }
         }
+        .fontDesign(.rounded)
         .animation(Theme.gentle, value: store.hasOnboarded)
     }
 
@@ -81,7 +82,7 @@ struct RootView: View {
                 .font(.subheadline.weight(.medium))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 11)
-                .glassCard(radius: 16, padding: 0)
+                .card(radius: 16, padding: 0)
                 .padding(.horizontal, 20)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .task(id: message) {

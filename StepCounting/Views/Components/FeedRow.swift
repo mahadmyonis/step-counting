@@ -59,12 +59,14 @@ struct FeedRow: View {
         }
         .buttonStyle(.pressable)
         .animation(Theme.springy, value: event.youCheered)
+        .accessibilityLabel(event.youCheered ? "Remove cheer" : "Cheer")
+        .accessibilityValue("\(event.cheers) cheers")
     }
 }
 
 #Preview {
     ZStack {
-        AuroraBackground()
+        ScreenBackground()
         VStack {
             FeedRow(
                 event: FeedEvent(
@@ -83,7 +85,7 @@ struct FeedRow: View {
                 onCheer: {}
             )
         }
-        .glassCard()
+        .card()
         .padding()
     }
 }

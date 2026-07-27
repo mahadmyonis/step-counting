@@ -25,7 +25,7 @@ struct CrewDetailView: View {
 
     var body: some View {
         ZStack {
-            AuroraBackground(tint: crew.tint, secondary: Theme.brand)
+            ScreenBackground(tint: crew.tint, secondary: Theme.brand)
 
             ScrollView {
                 VStack(spacing: Theme.sectionSpacing) {
@@ -94,7 +94,7 @@ struct CrewDetailView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .glassCard(tint: crew.tint)
+        .card(tint: crew.tint)
     }
 
     private var board: some View {
@@ -113,7 +113,7 @@ struct CrewDetailView: View {
                 }
             }
         }
-        .glassCard()
+        .card()
     }
 
     @ViewBuilder
@@ -163,7 +163,7 @@ struct CrewDetailView: View {
                 }
             }
         }
-        .glassCard()
+        .card()
     }
 
     private var simulationNote: some View {
@@ -175,7 +175,7 @@ struct CrewDetailView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .glassCard(radius: Theme.tightRadius, padding: 13)
+        .card(radius: Theme.tightRadius, padding: 13)
     }
 
     // MARK: Derived

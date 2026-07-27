@@ -23,7 +23,7 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            AuroraBackground(tint: Theme.accent(accentIndex), secondary: Theme.violet)
+            ScreenBackground(tint: Theme.accent(accentIndex), secondary: Theme.violet)
 
             VStack(spacing: 0) {
                 TabView(selection: $page) {
@@ -69,7 +69,7 @@ struct OnboardingView: View {
                     .font(.title3.weight(.semibold))
                     .multilineTextAlignment(.center)
                     .padding(.vertical, 14)
-                    .glassCard(radius: 16, padding: 0)
+                    .card(radius: 16, padding: 0)
                     .textInputAutocapitalization(.words)
 
                 emojiGrid
@@ -129,7 +129,7 @@ struct OnboardingView: View {
                     .font(.subheadline)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .glassCard(radius: 14, padding: 0)
+                    .card(radius: 14, padding: 0)
             }
         }
     }
@@ -176,7 +176,7 @@ struct OnboardingView: View {
                     }
                 }
                 .tint(Theme.accent(accentIndex))
-                .glassCard(radius: 16)
+                .card(radius: 16)
             }
         }
     }
@@ -194,17 +194,10 @@ struct OnboardingView: View {
                 }
             }
 
-            Button {
+            Button(page == pageCount - 1 ? "Start walking" : "Continue") {
                 advance()
-            } label: {
-                Text(page == pageCount - 1 ? "Start walking" : "Continue")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Theme.accent(accentIndex))
-            .buttonBorderShape(.roundedRectangle(radius: 16))
+            .buttonStyle(.prominent(Theme.accent(accentIndex)))
 
             if page < pageCount - 1 {
                 Button("Skip") { withAnimation(Theme.springy) { page = pageCount - 1 } }
@@ -357,7 +350,7 @@ struct OnboardingView: View {
                     .tint(tint)
             }
         }
-        .glassCard(radius: 16)
+        .card(radius: 16)
     }
 
     private var healthDetail: String {

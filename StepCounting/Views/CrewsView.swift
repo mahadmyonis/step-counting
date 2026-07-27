@@ -13,7 +13,7 @@ struct CrewsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AuroraBackground(tint: Theme.mint, secondary: Theme.brand)
+                ScreenBackground(tint: Theme.mint, secondary: Theme.brand)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
@@ -107,7 +107,7 @@ struct CrewsView: View {
                         )
                 }
             }
-            .glassCard(tint: Theme.accent(store.profile.accentIndex))
+            .card(tint: Theme.accent(store.profile.accentIndex))
         }
     }
 
@@ -128,7 +128,7 @@ struct CrewsView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .glassCard(radius: Theme.tightRadius, padding: 13)
+            .card(radius: Theme.tightRadius, padding: 13)
         }
     }
 
@@ -150,7 +150,7 @@ struct CrewsView: View {
                         .buttonStyle(.bordered)
                 }
             }
-            .glassCard()
+            .card()
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader("Your crews", subtitle: "\(store.crews.count) joined")
@@ -187,7 +187,7 @@ struct CrewsView: View {
                         }
                     }
                 }
-                .glassCard()
+                .card()
             }
         }
     }
@@ -216,49 +216,56 @@ struct CrewRow: View {
     var yourRank: Int?
 
     var body: some View {
-        HStack(spacing: 13) {
+        HStack(spacing: Theme.Space.md) {
             Text(crew.emoji)
                 .font(.system(size: 26))
                 .frame(width: 46, height: 46)
-                .background(crew.tint.opacity(0.16), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                .background(
+                    crew.tint.opacity(0.14),
+                    in: RoundedRectangle(cornerRadius: Theme.Radius.chip + 2, style: .continuous)
+                )
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                // The name gets the row's flexible width. Previously a rank
+                // block and a chevron squeezed it into "Sample Cr…".
                 Text(crew.name)
                     .font(.headline)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                HStack(spacing: -8) {
-                    ForEach(members.prefix(5)) { member in
-                        AvatarView(emoji: member.avatarEmoji, accentIndex: member.accentIndex, size: 24)
+                HStack(spacing: Theme.Space.sm) {
+                    HStack(spacing: -7) {
+                        ForEach(members.prefix(4)) { member in
+                            AvatarView(emoji: member.avatarEmoji, accentIndex: member.accentIndex, size: 22)
+                        }
                     }
-                    if members.count > 5 {
-                        Text("+\(members.count - 5)")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 12)
-                    }
+                    Text(memberCaption)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
-
-            Spacer(minLength: 0)
 
             if let yourRank {
-                VStack(spacing: 1) {
-                    Text("#\(yourRank)")
-                        .font(.subheadline.weight(.bold))
-                        .monospacedDigit()
-                    Text("today")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.secondary)
-                }
-                .foregroundStyle(crew.tint)
+                Text("#\(yourRank)")
+                    .font(.subheadline.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(crew.tint)
+                    .padding(.horizontal, Theme.Space.sm)
+                    .padding(.vertical, 5)
+                    .background(crew.tint.opacity(0.13), in: Capsule())
+                    .fixedSize()
+                    .accessibilityLabel("You are number \(yourRank) today")
             }
-
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.tertiary)
         }
-        .glassCard(tint: crew.tint)
+        .card(tint: crew.tint)
+    }
+
+    private var memberCaption: String {
+        let count = members.count
+        if count > 4 { return "+\(count - 4) more" }
+        return count == 1 ? "1 member" : "\(count) members"
     }
 }
 
@@ -275,7 +282,7 @@ struct JoinCrewView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AuroraBackground(tint: Theme.mint)
+                ScreenBackground(tint: Theme.mint)
 
                 VStack(spacing: 20) {
                     Text("🔑")
@@ -296,7 +303,7 @@ struct JoinCrewView: View {
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
                         .padding(.vertical, 16)
-                        .glassCard(radius: 16, padding: 0)
+                        .card(radius: 16, padding: 0)
                         .onChange(of: code) { _, newValue in
                             let cleaned = InviteCode.normalize(newValue)
                             if cleaned != newValue { code = cleaned }
@@ -313,19 +320,13 @@ struct JoinCrewView: View {
                     Button {
                         Task { await join() }
                     } label: {
-                        Group {
-                            if isJoining {
-                                ProgressView()
-                            } else {
-                                Text("Join crew")
-                            }
+                        if isJoining {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("Join crew")
                         }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.mint)
+                    .buttonStyle(.prominent(Theme.mint))
                     .disabled(code.count < 4 || isJoining)
 
                     Spacer()

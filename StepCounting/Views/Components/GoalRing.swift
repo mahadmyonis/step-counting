@@ -14,6 +14,7 @@ struct GoalRing: View {
     /// Optional caption under the count, e.g. "4,300 to go".
     var caption: String?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var animatedProgress: Double = 0
 
     private var rawProgress: Double {
@@ -36,6 +37,13 @@ struct GoalRing: View {
         .frame(width: diameter, height: diameter)
         .onAppear { animate(to: firstLap) }
         .onChange(of: firstLap) { _, newValue in animate(to: newValue) }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Steps today")
+        .accessibilityValue(
+            goal > 0
+                ? "\(steps.grouped) of \(goal.grouped), \(Int(rawProgress * 100)) percent"
+                : "\(steps.grouped)"
+        )
     }
 
     // MARK: Layers
@@ -110,6 +118,10 @@ struct GoalRing: View {
     }
 
     private func animate(to value: Double) {
+        guard !reduceMotion else {
+            animatedProgress = value
+            return
+        }
         withAnimation(.spring(response: 0.9, dampingFraction: 0.82)) {
             animatedProgress = value
         }
@@ -138,7 +150,7 @@ struct MiniRing: View {
 
 #Preview {
     ZStack {
-        AuroraBackground()
+        ScreenBackground()
         VStack(spacing: 30) {
             GoalRing(steps: 6_200, goal: 10_000, caption: "3,800 to go")
             GoalRing(steps: 14_800, goal: 10_000, diameter: 190)

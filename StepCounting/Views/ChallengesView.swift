@@ -16,7 +16,7 @@ struct ChallengesView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AuroraBackground(tint: Theme.violet, secondary: Theme.coral)
+                ScreenBackground(tint: Theme.violet, secondary: Theme.coral)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
@@ -75,7 +75,7 @@ struct ChallengesView: View {
             }
             .font(.subheadline.weight(.semibold))
         }
-        .glassCard()
+        .card()
     }
 
     @ViewBuilder
@@ -93,7 +93,7 @@ struct ChallengesView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .glassCard()
+            .card()
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader("Running now", subtitle: "\(store.activeChallenges.count) live")
@@ -198,7 +198,7 @@ struct TemplateTile: View {
             .foregroundStyle(Theme.accent(template.accentIndex))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(tint: Theme.accent(template.accentIndex))
+        .card(tint: Theme.accent(template.accentIndex))
     }
 }
 
@@ -232,7 +232,7 @@ struct FinishedRow: View {
                     .font(.title3)
             }
         }
-        .glassCard(radius: Theme.tightRadius, padding: 12)
+        .card(radius: Theme.tightRadius, padding: 12)
     }
 
     private var subtitle: String {
@@ -260,7 +260,7 @@ struct StartTemplateSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AuroraBackground(tint: Theme.accent(template.accentIndex))
+                ScreenBackground(tint: Theme.accent(template.accentIndex))
 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -273,17 +273,9 @@ struct StartTemplateSheet: View {
                             }
                         }
 
-                        Button {
-                            start()
-                        } label: {
-                            Text("Start challenge")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.accent(template.accentIndex))
-                        .disabled(selectedCrewID == nil)
+                        Button("Start challenge") { start() }
+                            .buttonStyle(.prominent(Theme.accent(template.accentIndex)))
+                            .disabled(selectedCrewID == nil)
                     }
                     .padding(Theme.screenPadding)
                 }
@@ -341,7 +333,7 @@ struct StartTemplateSheet: View {
                 Image(systemName: selectedCrewID == crew.id ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selectedCrewID == crew.id ? crew.tint : .secondary)
             }
-            .glassCard(radius: Theme.tightRadius, padding: 13)
+            .card(radius: Theme.tightRadius, padding: 13)
         }
         .buttonStyle(.pressable)
         .foregroundStyle(.primary)

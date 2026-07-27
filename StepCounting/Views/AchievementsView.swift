@@ -21,7 +21,7 @@ struct AchievementsView: View {
 
     var body: some View {
         ZStack {
-            AuroraBackground(tint: Theme.gold, secondary: Theme.violet)
+            ScreenBackground(tint: Theme.gold, secondary: Theme.violet)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
@@ -79,7 +79,7 @@ struct AchievementsView: View {
 
             Spacer(minLength: 0)
         }
-        .glassCard(tint: Theme.gold)
+        .card(tint: Theme.gold)
     }
 
     private func tierSection(_ tier: Achievement.Tier) -> some View {

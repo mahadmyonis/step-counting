@@ -19,7 +19,7 @@ struct StatsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AuroraBackground(tint: Theme.sky, secondary: Theme.brand)
+                ScreenBackground(tint: Theme.sky, secondary: Theme.brand)
 
                 ScrollView {
                     VStack(spacing: Theme.sectionSpacing) {
@@ -72,8 +72,39 @@ struct StatsView: View {
             }
 
             chart
+            legend
         }
-        .glassCard()
+        .card()
+    }
+
+    /// Explains the chart's colours without writing on top of it.
+    private var legend: some View {
+        HStack(spacing: Theme.Space.lg) {
+            legendItem(Theme.mint, "Goal met")
+            legendItem(Theme.brand, "Below goal")
+
+            HStack(spacing: 5) {
+                Rectangle()
+                    .fill(Theme.mint.opacity(0.7))
+                    .frame(width: 12, height: 1.5)
+                Text("Goal \(dailyGoal.grouped)")
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func legendItem(_ color: Color, _ text: String) -> some View {
+        HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(text)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var chart: some View {
@@ -99,22 +130,20 @@ struct StatsView: View {
                     )
                     .foregroundStyle(
                         day.metGoal(dailyGoal)
-                            ? Theme.softGradient(Theme.mint)
-                            : Theme.softGradient(Theme.brand)
+                            ? Theme.fill(Theme.mint)
+                            : Theme.fill(Theme.brand)
                     )
                     .cornerRadius(5)
                 }
             }
 
             if dailyGoal > 0 {
+                // Unlabelled on purpose — an inline annotation sat on top of
+                // whichever bar happened to be leftmost. The legend below the
+                // chart carries the number instead.
                 RuleMark(y: .value("Goal", dailyGoal))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
-                    .foregroundStyle(Theme.mint.opacity(0.8))
-                    .annotation(position: .top, alignment: .leading) {
-                        Text("Goal \(dailyGoal.compact)")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Theme.mint)
-                    }
+                    .foregroundStyle(Theme.mint.opacity(0.7))
             }
         }
         .chartXAxis {
@@ -195,7 +224,7 @@ struct StatsView: View {
                 }
             }
         }
-        .glassCard()
+        .card()
     }
 
     @ViewBuilder
@@ -230,7 +259,7 @@ struct StatsView: View {
                 .labelStyle(.iconOnly)
                 .font(.title3)
             }
-            .glassCard(tint: Theme.gold)
+            .card(tint: Theme.gold)
         }
     }
 
