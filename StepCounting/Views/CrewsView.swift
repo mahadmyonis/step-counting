@@ -17,6 +17,7 @@ struct CrewsView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
+                        cloudBanner
                         inviteCard
                         crewList
                         feedSection
@@ -25,9 +26,16 @@ struct CrewsView: View {
                     .padding(.bottom, 28)
                 }
                 .scrollIndicators(.hidden)
-                .refreshable { await health.refreshAll() }
+                .refreshable {
+                    await health.refreshAll()
+                    await store.syncCrews(history: health.history, force: true)
+                }
             }
             .navigationTitle("Crews")
+            .task {
+                await store.refreshCloudStatus()
+                await store.syncCrews(history: health.history)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -57,40 +65,71 @@ struct CrewsView: View {
     ///
     /// Every crew someone joins makes them meaningfully more likely to stick
     /// around, and this is the one screen element that turns a user into two.
+    /// Codes belong to crews, so when there isn't one yet this becomes a prompt
+    /// to make one rather than a code that leads nowhere.
+    @ViewBuilder
     private var inviteCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                AvatarView(
-                    emoji: store.profile.avatarEmoji,
-                    accentIndex: store.profile.accentIndex,
-                    size: 44,
-                    isYou: true
-                )
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Your invite code")
+        if let code = store.shareableInviteCode {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    AvatarView(
+                        emoji: store.profile.avatarEmoji,
+                        accentIndex: store.profile.accentIndex,
+                        size: 44,
+                        isYou: true
+                    )
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Invite code")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(code)
+                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                            .tracking(2)
+                            .minimumScaleFactor(0.7)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                Text("Send this to a friend — they enter it under Join with a code, and you'll see each other's days.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ShareLink(item: inviteMessage(code: code)) {
+                    Label("Invite a friend", systemImage: "square.and.arrow.up")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(
+                            Theme.brand.opacity(0.16),
+                            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        )
+                }
+            }
+            .glassCard(tint: Theme.accent(store.profile.accentIndex))
+        }
+    }
+
+    /// Explains, in plain language, when crews can't work right now.
+    @ViewBuilder
+    private var cloudBanner: some View {
+        if let reason = store.cloudStatus.reason {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "icloud.slash")
+                    .foregroundStyle(Theme.flame)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Crews are offline")
+                        .font(.subheadline.weight(.semibold))
+                    Text(reason)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(store.profile.inviteCode)
-                        .font(.system(size: 26, weight: .bold, design: .monospaced))
-                        .tracking(3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
             }
-
-            Text("Send this to a friend — they enter it under Join with a code and you'll see each other's days.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            ShareLink(item: inviteMessage) {
-                Label("Invite a friend", systemImage: "square.and.arrow.up")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(Theme.brand.opacity(0.16), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-            }
+            .glassCard(radius: Theme.tightRadius, padding: 13)
         }
-        .glassCard(tint: Theme.accent(store.profile.accentIndex))
     }
 
     @ViewBuilder
@@ -155,10 +194,10 @@ struct CrewsView: View {
 
     // MARK: Derived
 
-    private var inviteMessage: String {
+    private func inviteMessage(code: String) -> String {
         """
-        Walking with me on StepCounting? My invite code is \(store.profile.inviteCode) — \
-        add it and we can see each other's daily steps and race a few challenges.
+        Walking with me on StepCounting? Join with code \(code) — \
+        we'll see each other's daily steps and can race a few challenges.
         """
     }
 
@@ -324,6 +363,8 @@ struct CreateCrewView: View {
     @State private var name = ""
     @State private var emoji = "👟"
     @State private var accentIndex = 3
+    @State private var isCreating = false
+    @State private var error: String?
 
     var body: some View {
         NavigationStack {
@@ -378,7 +419,12 @@ struct CreateCrewView: View {
                 }
 
                 Section {
-                    Text("You'll get a code to share. Anyone with it can see your daily totals — and you'll see theirs.")
+                    if let error {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(Theme.coral)
+                    }
+                    Text("The crew lives in your iCloud and is shared only with people you give the code to. Everyone's phone reads its own Health data and publishes a daily total — nobody can see anyone else's Health app.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -390,15 +436,25 @@ struct CreateCrewView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
-                        Task {
-                            await store.createCrew(name: name, emoji: emoji, accentIndex: accentIndex)
-                            dismiss()
-                        }
+                    if isCreating {
+                        ProgressView()
+                    } else {
+                        Button("Create") { Task { await create() } }
+                            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
+        }
+    }
+
+    private func create() async {
+        isCreating = true
+        defer { isCreating = false }
+        do {
+            try await store.createCrew(name: name, emoji: emoji, accentIndex: accentIndex)
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 }

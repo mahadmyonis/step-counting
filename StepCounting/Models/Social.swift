@@ -3,14 +3,16 @@ import SwiftUI
 
 // MARK: - You
 
-/// The local user's identity. Never leaves the device in this build.
+/// The local user's identity.
+///
+/// Name, avatar, and colour are published to the crews you join so people can
+/// tell who's who. Nothing else about you is — least of all your Health data,
+/// which never leaves this device.
 struct UserProfile: Codable, Identifiable, Equatable {
     var id: UUID = UUID()
     var displayName: String = "You"
     var avatarEmoji: String = "🏃"
     var accentIndex: Int = 0
-    /// Code other people type to add you. Generated once, then stable.
-    var inviteCode: String = InviteCode.generate()
     var joinedAt: Date = Date()
     /// Experience from steps, goal days, badges, and challenge wins.
     var xp: Int = 0
@@ -77,11 +79,13 @@ enum XP {
 
 /// Someone you walk with.
 ///
-/// In this build the roster is generated on-device from the crew's invite code
-/// (see `LocalSocialService`) — `seed`, `averageSteps`, and `consistency`
-/// describe a walking personality that produces a stable, believable history.
-/// When a real backend lands, the same struct is filled from the server and
-/// `simulatedSteps` simply stops being called.
+/// For real crew-mates, `reportedSteps` is filled from what their own device
+/// published to CloudKit — their phone read their Health store, never ours.
+///
+/// The `seed`/`averageSteps`/`consistency` trio only drives the onboarding
+/// sample crew: they describe a walking personality that produces a stable,
+/// believable history. `isSimulated` gates that path, so a real person with no
+/// data for a day reads as zero rather than as a plausible invention.
 struct Friend: Codable, Identifiable, Equatable, Hashable {
     var id: UUID
     var displayName: String
@@ -94,8 +98,13 @@ struct Friend: Codable, Identifiable, Equatable, Hashable {
     var averageSteps: Int = 8_000
     /// 0 = wildly variable day to day, 1 = metronome.
     var consistency: Double = 0.6
-    /// Backend-provided steps keyed by ISO day. Empty for simulated crew-mates.
+    /// Steps this person's own device published, keyed by day.
     var reportedSteps: [String: Int] = [:]
+    /// True only for demo crew-mates. Real people never fall back to simulation —
+    /// a day they haven't published is zero, not a plausible-looking guess.
+    var isSimulated: Bool = true
+    /// When their device last published. Drives the "updated 4m ago" caption.
+    var lastPublishedAt: Date?
 
     var initials: String {
         let parts = displayName.split(separator: " ")
@@ -115,6 +124,7 @@ extension Friend {
         if let reported = reportedSteps[Self.dayKey(day, calendar: calendar)] {
             return reported
         }
+        guard isSimulated else { return 0 }
         return simulatedSteps(on: day, calendar: calendar, now: now)
     }
 
@@ -193,10 +203,32 @@ struct Crew: Codable, Identifiable, Equatable {
     var inviteCode: String
     var createdAt: Date = Date()
     var memberIDs: [UUID] = []
-    /// True when this crew was generated locally rather than fetched.
+    /// True when this crew's members are generated on-device rather than real.
     var isSimulated: Bool = true
+    /// Set when the crew is backed by a shared CloudKit zone.
+    var cloud: CloudReference?
+    /// When we last pulled crew-mates' numbers down.
+    var lastSyncedAt: Date?
 
     var tint: Color { Theme.accent(accentIndex) }
+
+    var isCloudBacked: Bool { cloud != nil }
+
+    /// Where a crew lives in CloudKit.
+    ///
+    /// A crew is one custom record zone. The person who created it owns the zone
+    /// in their private database; everyone else sees the same zone through their
+    /// shared database, which is why `ownerName` decides which database to talk
+    /// to on any given device.
+    struct CloudReference: Codable, Equatable {
+        var zoneName: String
+        /// `nil` when this device owns the zone.
+        var ownerName: String?
+        /// The capability URL participants accept to join.
+        var shareURL: String?
+
+        var isOwner: Bool { ownerName == nil }
+    }
 
     static let emojiChoices = ["👟", "🔥", "⚡️", "🏔️", "🌊", "🌲", "🦌", "🐺", "☕️", "🎽", "🚦", "🌻"]
 }

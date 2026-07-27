@@ -319,7 +319,8 @@ struct DashboardView: View {
                 : "\(health.today.distanceString(metric: useMetric)) so far today",
             profile: store.profile,
             streak: store.streak.current,
-            accent: Theme.accent(store.profile.accentIndex)
+            accent: Theme.accent(store.profile.accentIndex),
+            inviteCode: store.shareableInviteCode
         )
     }
 

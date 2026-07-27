@@ -162,7 +162,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         } footer: {
-            Text("Step, distance, energy, and stair data is read from Apple Health and never leaves your device. Crews and challenges are stored locally too — there's no account and no server.")
+            Text("Health data is read on this device and never uploaded. When you join a crew, this phone publishes one number per day — your step total — to your own iCloud so crew-mates can see it. There is no account to create and no server of ours in between.")
         }
     }
 

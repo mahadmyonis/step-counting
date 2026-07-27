@@ -32,6 +32,10 @@ final class AppStore: ObservableObject {
     @Published var celebration: Celebration?
     /// Non-blocking banner text for smaller confirmations.
     @Published var toast: String?
+    /// Whether iCloud can back real crews right now, and why not if it can't.
+    @Published private(set) var cloudStatus: SocialAvailability = .ready
+    /// True while a crew sync is in flight, for the spinner in the Crews tab.
+    @Published private(set) var isSyncing = false
 
     // MARK: Derived
 
@@ -66,8 +70,13 @@ final class AppStore: ObservableObject {
 
     // MARK: Private
 
-    private let social: SocialService
+    /// The real backend. Every crew that isn't the onboarding sample goes here.
+    private let cloud: SocialService
+    /// Backs the sample crew only.
+    private let demo = DemoSocialService()
     private let store: PersistenceStore
+    /// Stops a foreground burst of Health refreshes from hammering CloudKit.
+    private var lastCloudSync: Date?
     /// Guards against celebrating the same thing twice in one day.
     private var celebratedGoalDay: Date?
     private var celebratedStreakMilestone: Int = 0
@@ -77,8 +86,8 @@ final class AppStore: ObservableObject {
 
     // MARK: Init
 
-    init(social: SocialService = LocalSocialService(), store: PersistenceStore = .documents()) {
-        self.social = social
+    init(cloud: SocialService = CloudKitSocialService(), store: PersistenceStore = .documents()) {
+        self.cloud = cloud
         self.store = store
         self.profile = UserProfile()
         load()
@@ -147,8 +156,7 @@ final class AppStore: ObservableObject {
         roster[profile.id] = you
 
         if joinSampleCrew {
-            let bundle = LocalSocialService.demoCrew(owner: profile)
-            adopt(bundle)
+            adopt(DemoSocialService.sampleCrew(owner: profile))
         }
 
         hasOnboarded = true
@@ -157,24 +165,32 @@ final class AppStore: ObservableObject {
 
     // MARK: Crews
 
-    func createCrew(name: String, emoji: String, accentIndex: Int) async {
-        do {
-            let bundle = try await social.createCrew(
-                name: name, emoji: emoji, accentIndex: accentIndex, owner: profile
-            )
-            adopt(bundle)
-            toast = "\(emoji) \(name) created — share the code to fill it up."
-            save()
-        } catch {
-            toast = error.localizedDescription
-        }
+    /// Re-checks whether iCloud can back crews. Cheap; safe to call on foreground.
+    func refreshCloudStatus() async {
+        cloudStatus = await cloud.availability()
+    }
+
+    func createCrew(name: String, emoji: String, accentIndex: Int) async throws {
+        let bundle = try await cloud.createCrew(
+            name: name, emoji: emoji, accentIndex: accentIndex, owner: profile
+        )
+        adopt(bundle)
+        Haptics.success()
+        toast = "\(emoji) \(name) created — share code \(bundle.crew.inviteCode)."
+        save()
     }
 
     func joinCrew(code: String) async throws {
         let normalized = InviteCode.normalize(code)
-        let bundle = try await social.crew(forInviteCode: normalized)
 
-        if let existing = crews.first(where: { $0.inviteCode == bundle.crew.inviteCode }) {
+        if let existing = crews.first(where: { $0.inviteCode == normalized }) {
+            throw SocialError.alreadyJoined(existing.name)
+        }
+
+        let bundle = try await cloud.joinCrew(code: normalized, as: profile)
+
+        if let existing = crews.first(where: { $0.cloud?.zoneName == bundle.crew.cloud?.zoneName }),
+           bundle.crew.cloud != nil {
             throw SocialError.alreadyJoined(existing.name)
         }
 
@@ -195,6 +211,12 @@ final class AppStore: ObservableObject {
         challenges.removeAll { $0.crewID == crew.id }
         pruneRoster()
         save()
+
+        // Tell the server after the local state is already consistent — leaving
+        // shouldn't appear to fail because the network did.
+        Task { [cloud, profile] in
+            try? await cloud.leave(crew: crew, as: profile)
+        }
     }
 
     /// Adds a crew and its members, always including the local user.
@@ -298,9 +320,13 @@ final class AppStore: ObservableObject {
         save()
     }
 
-    func regenerateInviteCode() {
-        profile.inviteCode = InviteCode.generate()
-        save()
+    /// The code to hand out when someone asks "how do I follow you?".
+    ///
+    /// Codes belong to crews rather than people, so this is simply the first
+    /// real crew's code — and `nil` when there isn't one yet, which the UI turns
+    /// into a prompt to create one rather than a dead code nobody can use.
+    var shareableInviteCode: String? {
+        crews.first { $0.isCloudBacked }?.inviteCode
     }
 
     // MARK: Feed
@@ -420,6 +446,11 @@ final class AppStore: ObservableObject {
         celebrateIfNeeded(health: health, goal: goal, newBadges: newBadges, now: now, calendar: calendar)
 
         save()
+
+        // Our own numbers just changed, so the crew's copy of them is stale.
+        Task { [weak self] in
+            await self?.syncCrews(history: history)
+        }
     }
 
     /// Marks any newly satisfied badges as earned and returns them.
@@ -510,6 +541,37 @@ final class AppStore: ObservableObject {
                 )
             }
         }
+    }
+
+    // MARK: Cloud sync
+
+    /// Pushes our daily totals up and pulls everyone else's down.
+    ///
+    /// Throttled, because Health fires an observer callback every time a batch
+    /// of samples lands — which on an active morning is a lot more often than
+    /// anyone needs a leaderboard refreshed.
+    func syncCrews(history: [DailyActivity], force: Bool = false) async {
+        let cloudCrews = crews.filter(\.isCloudBacked)
+        guard !cloudCrews.isEmpty, !isSyncing else { return }
+
+        if !force, let last = lastCloudSync, Date().timeIntervalSince(last) < 90 { return }
+
+        isSyncing = true
+        defer { isSyncing = false }
+
+        cloudStatus = await cloud.availability()
+        guard cloudStatus.isReady else { return }
+
+        // Publishing first means the roster we pull back already reflects us.
+        try? await cloud.publish(history: history, profile: profile, to: cloudCrews)
+
+        for crew in cloudCrews {
+            guard let bundle = try? await cloud.refresh(crew: crew, as: profile) else { continue }
+            adopt(bundle)
+        }
+
+        lastCloudSync = Date()
+        save()
     }
 
     // MARK: Leaderboards
@@ -617,7 +679,7 @@ struct PersistenceStore {
 extension AppStore {
     /// A fully populated store backed by nothing on disk, for SwiftUI previews.
     static func preview() -> AppStore {
-        let store = AppStore(social: LocalSocialService(), store: .ephemeral)
+        let store = AppStore(cloud: DemoSocialService(), store: .ephemeral)
         store.completeOnboarding(name: "Sam", emoji: "⚡️", accentIndex: 1, joinSampleCrew: true)
         if let crew = store.crews.first {
             store.start(template: ChallengeTemplate.catalog[0], in: crew)

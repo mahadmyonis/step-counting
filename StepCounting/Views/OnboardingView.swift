@@ -51,7 +51,7 @@ struct OnboardingView: View {
                 highlight("flame.fill", "Streaks that survive a bad day", Theme.flame)
                 highlight("flag.checkered", "Challenges and virtual routes", Theme.brand)
                 highlight("person.2.fill", "Private crews, invite-only", Theme.mint)
-                highlight("lock.fill", "Health data never leaves the device", Theme.violet)
+                highlight("lock.fill", "Crews see one daily number, nothing else", Theme.violet)
             }
             .padding(.top, 8)
         }
@@ -390,6 +390,6 @@ struct GoalPreset: Identifiable {
 #Preview {
     OnboardingView()
         .environmentObject(HealthKitManager.preview())
-        .environmentObject(AppStore(social: LocalSocialService(), store: .ephemeral))
+        .environmentObject(AppStore(cloud: DemoSocialService(), store: .ephemeral))
         .environmentObject(NotificationScheduler())
 }

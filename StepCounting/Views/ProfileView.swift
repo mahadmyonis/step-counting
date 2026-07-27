@@ -62,17 +62,19 @@ struct ProfileView: View {
                 Pill(text: "\(store.profile.challengesWon) wins", systemImage: "trophy.fill", tint: Theme.gold)
             }
 
-            ShareLink(item: inviteMessage) {
-                Label("Invite code: \(store.profile.inviteCode)", systemImage: "square.and.arrow.up")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(
-                        Theme.accent(store.profile.accentIndex).opacity(0.16),
-                        in: RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    )
+            if let code = store.shareableInviteCode {
+                ShareLink(item: inviteMessage(code: code)) {
+                    Label("Invite code: \(code)", systemImage: "square.and.arrow.up")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(
+                            Theme.accent(store.profile.accentIndex).opacity(0.16),
+                            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        )
+                }
+                .padding(.top, 2)
             }
-            .padding(.top, 2)
         }
         .frame(maxWidth: .infinity)
         .glassCard(tint: Theme.accent(store.profile.accentIndex))
@@ -232,9 +234,9 @@ struct ProfileView: View {
         return earned + Array(locked.prefix(8 - earned.count))
     }
 
-    private var inviteMessage: String {
+    private func inviteMessage(code: String) -> String {
         """
-        Walking with me on StepCounting? My invite code is \(store.profile.inviteCode).
+        Walking with me on StepCounting? Join with code \(code).
         """
     }
 }
@@ -302,18 +304,9 @@ struct EditProfileView: View {
                 }
 
                 Section {
-                    HStack {
-                        Text("Invite code")
-                        Spacer()
-                        Text(store.profile.inviteCode)
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    }
-                    Button("Generate a new code") {
-                        store.regenerateInviteCode()
-                    }
-                } footer: {
-                    Text("Generating a new code stops anyone using the old one from adding you.")
+                    Text("This is what your crews see. Changes reach them the next time your phone publishes.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Edit profile")

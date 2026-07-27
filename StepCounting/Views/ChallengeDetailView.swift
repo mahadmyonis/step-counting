@@ -206,7 +206,8 @@ struct ChallengeDetailView: View {
             profile: store.profile,
             streak: store.streak.current,
             badgeTitle: challenge.emoji + " " + challenge.format.title,
-            accent: challenge.tint
+            accent: challenge.tint,
+            inviteCode: store.shareableInviteCode
         )
     }
 

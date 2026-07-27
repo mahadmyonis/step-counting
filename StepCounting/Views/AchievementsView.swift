@@ -43,7 +43,8 @@ struct AchievementsView: View {
                 badge: badge,
                 unlockedAt: store.unlockedBadges[badge.id],
                 progress: badge.requirement.progress(in: context),
-                profile: store.profile
+                profile: store.profile,
+                inviteCode: store.shareableInviteCode
             )
             .presentationDetents([.height(420)])
         }
@@ -190,6 +191,7 @@ struct BadgeDetailSheet: View {
     let unlockedAt: Date?
     let progress: Double
     let profile: UserProfile
+    var inviteCode: String?
 
     @Environment(\.dismiss) private var dismiss
 
@@ -230,7 +232,8 @@ struct BadgeDetailSheet: View {
                         subheadline: badge.detail,
                         profile: profile,
                         badgeTitle: "\(badge.tier.title) badge",
-                        accent: badge.tier.tint
+                        accent: badge.tier.tint,
+                        inviteCode: inviteCode
                     ),
                     label: "Share badge"
                 )

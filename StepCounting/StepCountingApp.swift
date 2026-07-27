@@ -17,6 +17,7 @@ struct StepCountingApp: App {
                     await health.requestAuthorization()
                     await health.refreshAll()
                     await notifications.refreshAuthorizationStatus()
+                    await store.refreshCloudStatus()
                 }
         }
     }

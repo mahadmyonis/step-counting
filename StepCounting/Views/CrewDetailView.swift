@@ -39,8 +39,12 @@ struct CrewDetailView: View {
                 .padding(.bottom, 28)
             }
             .scrollIndicators(.hidden)
-            .refreshable { await health.refreshAll() }
+            .refreshable {
+                await health.refreshAll()
+                await store.syncCrews(history: health.history, force: true)
+            }
         }
+        .task { await store.syncCrews(history: health.history) }
         .navigationTitle(crew.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -82,11 +86,11 @@ struct CrewDetailView: View {
 
             HStack(spacing: 8) {
                 Pill(text: "\(crew.memberIDs.count) members", systemImage: "person.2.fill", tint: crew.tint)
-                Pill(
-                    text: "since \(crew.createdAt.monthDay)",
-                    systemImage: "calendar",
-                    tint: Theme.brand
-                )
+                if crew.isCloudBacked {
+                    Pill(text: syncCaption, systemImage: "arrow.triangle.2.circlepath", tint: Theme.mint)
+                } else {
+                    Pill(text: "since \(crew.createdAt.monthDay)", systemImage: "calendar", tint: Theme.brand)
+                }
             }
         }
         .frame(maxWidth: .infinity)
@@ -166,7 +170,7 @@ struct CrewDetailView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle.fill")
                 .foregroundStyle(Theme.sky)
-            Text("Members of this crew are generated on your device from its invite code — their step histories are simulated, not real people's data.")
+            Text("This is the sample crew — these walkers are generated on your device and their step histories are made up. Create or join a real crew to walk with actual people.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -178,6 +182,15 @@ struct CrewDetailView: View {
 
     private var inputs: ChallengeEngine.Inputs {
         store.challengeInputs(health: health, goal: dailyGoal, useMetric: useMetric)
+    }
+
+    /// How fresh the crew's numbers are — worth showing, because a leaderboard
+    /// nobody can date is a leaderboard nobody trusts.
+    private var syncCaption: String {
+        if store.isSyncing { return "Syncing…" }
+        guard let synced = crew.lastSyncedAt else { return "Not synced yet" }
+        if Date().timeIntervalSince(synced) < 90 { return "Up to date" }
+        return "Synced \(synced.formatted(.relative(presentation: .numeric)))"
     }
 
     private var entries: [LeaderboardEntry] {
@@ -241,7 +254,7 @@ struct CrewDetailView: View {
 
 #Preview {
     NavigationStack {
-        CrewDetailView(crew: LocalSocialService.demoCrew(owner: UserProfile()).crew)
+        CrewDetailView(crew: DemoSocialService.sampleCrew(owner: UserProfile()).crew)
             .environmentObject(HealthKitManager.preview())
             .environmentObject(AppStore.preview())
     }

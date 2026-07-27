@@ -222,7 +222,8 @@ struct StatsView: View {
                         subheadline: "Best day of my \(range.rawValue.lowercased())",
                         profile: store.profile,
                         streak: store.streak.current,
-                        accent: Theme.gold
+                        accent: Theme.gold,
+                        inviteCode: store.shareableInviteCode
                     ),
                     label: ""
                 )

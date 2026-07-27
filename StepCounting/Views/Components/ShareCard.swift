@@ -13,6 +13,9 @@ struct ShareCard: View {
     var streak: Int = 0
     var badgeTitle: String?
     var accent: Color = Theme.brand
+    /// A crew code to join. Omitted when the user isn't in a real crew yet —
+    /// better no call to action than one that leads nowhere.
+    var inviteCode: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -65,14 +68,16 @@ struct ShareCard: View {
             Spacer(minLength: 24)
 
             HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("WALK WITH ME")
-                        .font(.system(size: 10, weight: .black))
-                        .tracking(1.4)
-                        .foregroundStyle(.white.opacity(0.65))
-                    Text(profile.inviteCode)
-                        .font(.system(size: 26, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
+                if let inviteCode {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("WALK WITH ME")
+                            .font(.system(size: 10, weight: .black))
+                            .tracking(1.4)
+                            .foregroundStyle(.white.opacity(0.65))
+                        Text(inviteCode)
+                            .font(.system(size: 26, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.white)
+                    }
                 }
 
                 Spacer()
@@ -141,8 +146,9 @@ struct ShareCardButton: View {
     ShareCard(
         headline: "18,240 steps",
         subheadline: "Best day in three weeks",
-        profile: UserProfile(displayName: "Sam", avatarEmoji: "⚡️", accentIndex: 1, inviteCode: "K7X2QM"),
+        profile: UserProfile(displayName: "Sam", avatarEmoji: "⚡️", accentIndex: 1),
         streak: 14,
-        badgeTitle: "Personal best"
+        badgeTitle: "Personal best",
+        inviteCode: "K7X2QM4P"
     )
 }

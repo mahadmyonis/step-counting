@@ -51,7 +51,11 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { await health.refreshAll() }
+            Task {
+                await health.refreshAll()
+                // An iCloud sign-in or sign-out only shows up on foreground.
+                await store.refreshCloudStatus()
+            }
         }
         .overlay(alignment: .top) { toast }
         .fullScreenCover(item: $store.celebration) { celebration in
