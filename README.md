@@ -2,7 +2,7 @@
 
 A SwiftUI iOS app that reads your activity from **Apple Health** and turns it into something you'll actually keep doing: streaks that survive a bad day, badges worth chasing, private crews of people you know, and challenges you race them in — including virtual routes like the Camino and Route 66.
 
-No account. No server. No global leaderboard full of strangers.
+No account to create. No server of ours. No global leaderboard full of strangers — crews sync through your own iCloud.
 
 ## Why it's built this way
 
@@ -32,7 +32,7 @@ The feature set is a direct response to what actually retains people in fitness 
 - Live standings, pace tracking ("3.2k ahead of pace"), and a custom challenge builder.
 
 ### Crews
-- Private, invite-code based. Create one or join with a 6-character code.
+- Private and invite-code based, synced through CloudKit. Create one or join with a code.
 - Today / this-week leaderboards.
 - **Activity feed** with one-tap cheers.
 - Share sheet built around your invite code.
@@ -46,20 +46,43 @@ The feature set is a direct response to what actually retains people in fitness 
 - **Share cards** — rendered images carrying your stat, streak, and invite code.
 - **Reminders** — at most two, and only when something is at stake: an evening nudge when the goal is genuinely within reach, and a last call when a live streak isn't safe. There is deliberately no generic "come back!" notification.
 
-## About the social data
+## How crews actually work
 
-There is no backend in this build. `SocialService` is the seam one plugs into:
+HealthKit is device-local by design. There is no API that lets this app read
+what's in someone else's Health store — so a crew leaderboard is N phones each
+reading **their own** Health data and publishing one number per day, which
+everyone else then reads. `CloudKitSocialService` is that transport, and nothing
+more. There is no account to create and no server of ours in between.
 
-```swift
-protocol SocialService: AnyObject {
-    func crew(forInviteCode code: String) async throws -> CrewBundle
-    func createCrew(name: String, emoji: String, accentIndex: Int, owner: UserProfile) async throws -> CrewBundle
-    func publish(history: [DailyActivity], profile: UserProfile) async throws
-    func refresh(crew: Crew, knownMembers: [Friend]) async throws -> [Friend]
-}
-```
+**One crew is one CloudKit record zone.** Whoever creates it owns the zone in
+their private database and puts a zone-wide `CKShare` on it; everyone else sees
+that same zone through their shared database. Names and step totals only ever
+exist inside that zone, visible to crew members and nobody else.
 
-`LocalSocialService` implements it entirely on-device: every crew is derived deterministically from its invite code, so two people who type the same code see the same crew name, the same members, and the same histories — the social loop is fully playable offline. **Crew-mates' step numbers are simulated**, which the app states plainly on any crew it generated. When a real backend exists, it fills `Friend.reportedSteps` and nothing else in the app changes.
+**The public database holds exactly one thing:** a `CrewInvite` record whose
+record *name* is the invite code and whose only field is the share URL. That
+preserves six-character invite codes — much better than pasting share links —
+without putting a byte of personal data anywhere public. Looking a code up is a
+fetch-by-ID, not a query, so there's no index to configure.
+
+Two consequences worth knowing:
+
+- Reads use `recordZoneChanges` rather than `CKQuery`, so the schema CloudKit
+  generates on first write is the entire setup. Nothing to configure by hand.
+- Publishes diff against what was last sent, so a refresh writes only the days
+  that actually changed, and syncs are throttled to 90 seconds — Health fires
+  observer callbacks far more often than a leaderboard needs redrawing.
+
+`DemoSocialService` backs one thing only: the optional sample crew in
+onboarding, so a brand-new user isn't staring at an empty leaderboard before
+they've invited anyone. Its walkers are generated on-device and the app says so
+on that crew's screen. Real people never fall back to simulated numbers — a day
+someone hasn't published reads as zero.
+
+### What leaves your device
+
+Your Health data doesn't. What a crew sees is your display name, avatar, colour,
+and one step total per day. That's the whole payload.
 
 ## Requirements
 
@@ -71,8 +94,9 @@ protocol SocialService: AnyObject {
 
 1. Open `StepCounting.xcodeproj` in Xcode.
 2. Select the **StepCounting** scheme and an iPhone simulator or device.
-3. Set your own signing team on the target (Signing & Capabilities). The **HealthKit** capability, including background delivery, is configured via `StepCounting/StepCounting.entitlements`.
-4. Build and run. Grant Health access when prompted, and accept the sample crew in onboarding so the leaderboards have something in them.
+3. Set your own signing team on the target (Signing & Capabilities). **HealthKit** (including background delivery) and **iCloud → CloudKit** are declared in `StepCounting/StepCounting.entitlements`.
+4. Create the CloudKit container `iCloud.com.mahadmyonis.StepCounting` (or change `CloudKitSocialService.defaultContainerIdentifier` and the entitlement to match your own). No schema setup is needed — CloudKit generates it on first write.
+5. Build and run. Grant Health access when prompted, and accept the sample crew in onboarding so the leaderboards have something in them.
 
 > Tip: In the simulator, open the **Health** app and add sample step / walking+running distance / active energy data so the charts have something to show.
 
@@ -97,7 +121,8 @@ StepCounting/
 ├── Services/
 │   ├── HealthKitManager.swift       # All HealthKit reads and observers
 │   ├── AppStore.swift               # Root state, persistence, sync
-│   ├── SocialService.swift          # Backend seam + on-device implementation
+│   ├── SocialService.swift          # Backend protocol + demo implementation
+│   ├── CloudKitSocialService.swift  # Real crew sync (shared zones + CKShare)
 │   ├── StreakEngine.swift           # Streak and freeze arithmetic
 │   ├── ChallengeEngine.swift        # Standings, pace, winners
 │   └── NotificationScheduler.swift  # Local reminders
@@ -127,17 +152,20 @@ StepCounting/
 
 ## Known limitations
 
-- Crews and challenges are device-local; there's no sync between devices and no real friends until a backend implements `SocialService`.
+- **CloudKit sync has not been run against a live container.** It compiles, and the design is conventional, but every path that talks to iCloud — creating a share, resolving a code, accepting, publishing, reading a zone — needs a real two-device test before this ships.
+- Crews need an iCloud account. Without one, the app degrades to solo tracking and says why; nothing else is affected.
+- Challenges are still device-local: a challenge you start is visible only to you, though it scores everyone's real published steps. Syncing the challenge list itself is the obvious next step.
 - Streak history is computed from a rolling 90-day window. Longer streaks are carried forward from the persisted value, which requires the app to be opened at least once every 90 days to stay exact.
-- Crew-mates in generated crews are simulated. Any crew you create yourself starts with just you in it.
+- Invite codes are 8 characters from a 32-character alphabet (~1.1 × 10¹²). Guessing one is impractical, but the code *is* the only thing protecting a crew, so treat it like a password.
 
 ## Before shipping
 
-- Set your own bundle identifier (currently `com.mahadmyonis.StepCounting`) and signing team.
+- Set your own bundle identifier (currently `com.mahadmyonis.StepCounting`), signing team, and CloudKit container.
+- Deploy the CloudKit schema from Development to Production in the CloudKit console — dev schema does not carry over to App Store builds, and this is the classic way a working app ships broken.
 - Decide on App Store metadata: the title and subtitle carry most of the search weight, and the first three screenshots carry most of the conversion. The ring, the streak card, and a crew leaderboard are the three strongest frames in the app.
-- Consider a real backend before any paid acquisition — the invite loop is the growth engine, and it can't fire across devices without one.
+- Test the invite loop end to end on two devices with different iCloud accounts. It is the growth engine, and it is the one thing CI cannot check.
 
 ## Notes
 
 - HealthKit deliberately does not report read-authorization status, so the app infers access from whether queries succeed after the authorization prompt.
-- Health data never leaves the device, and neither does anything else — there is no analytics SDK and no network code in the app.
+- There is no analytics SDK and no third-party network code. The only thing the app talks to is the user's own iCloud.
